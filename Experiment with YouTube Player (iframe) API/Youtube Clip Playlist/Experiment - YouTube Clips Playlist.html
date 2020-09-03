@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+  <body>
+  
+    <!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
+    <div id='player_div'></div>
+    
+    <div>Current Time : <span id="videoTime"></span></div>
+    <div>Queue : <span id="QueueNum">-</span></div>
+    
+	<div id='ux' style="font-family: roboto;">
+   
+        <p>
+        	<div style="font-size: 18px; padding: 10px;">Queue Video By Id</div>
+        	
+        	<label>video id</label>
+        	<input id='cueVideoById' value='crqUDl8BPWI'  style="padding: 4px; margin: 6px;"/>
+        	<br/>
+        	
+        	<label>start</label>
+        	<input id='cueVideoStart' type="number" value='60' style="padding: 4px; margin: 6px;" />
+        	<br/>
+        	
+        	<label>end</label>        
+        	<input id='cueVideoEnd' type="number" value='70'  style="padding: 4px; margin: 6px;"/>
+         	<br/>
+         	
+         	<label></label>
+        	<button onclick='submitCueVideoById()' style="padding: 8px 68px; background: #F44336; border: none; border-radius: 4px; font-size: 16px; color: #fff; cursor: pointer;">Add to Queue</button>
+    	</p>   
+	</div>
+
+	<div id="QueueList">
+  		<div id="PlaceholderYTVid">Placeholder : <a href="https://www.youtube.com/watch?v=crqUDl8BPWI">crqUDl8BPWI</a></div>  
+	</div>
+  
+  
+  
+  
+<!-- ____________________  JavaScript   _________________________-->
+  
+  
+    <script>
+    
+    var player;	
+	var startTime = -1;
+	var playState = "none";
+	var QueueState = "none";
+	var QueuePlayist = [];
+	var curQueue = -1;
+	
+	var PlaceholderVidId = "rzfmZC3kg3M";
+	
+	document.getElementById("PlaceholderYTVid").innerHTML = 'Placeholder : <a href="https://www.youtube.com/watch?v=' + PlaceholderVidId + '">' + PlaceholderVidId + "</a>";
+
+	// Set default Queue list
+	AddToQueue("crqUDl8BPWI", 0, 8);
+	AddToQueue("crqUDl8BPWI", 180, 200);
+	AddToQueue("zcuepVIzRgI", 86, 160);
+
+	
+
+	// 2. This code loads the IFrame Player API code asynchronously.
+	var tag = document.createElement("script");
+	tag.src = "https://www.youtube.com/iframe_api";
+	var firstScriptTag = document.getElementsByTagName("script")[0];
+	firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+	// When You Tube API is ready, create a new
+	// You Tube player in the div with id 'player'
+	function onYouTubeIframeAPIReady() {
+	    player = new YT.Player("player_div", {
+	        videoId: PlaceholderVidId, // Load the initial video
+
+	        playerVars: {
+	            autoplay: 1, // Don't autoplay the initial video
+	            rel: 0, //  Don’t show related videos
+	            theme: "light", // Use a light player instead of a dark one
+	            controls: 1, // Show player controls
+	            showinfo: 0, // Don’t show title or loader
+	            modestbranding: 1, // No You Tube logo on control bar
+	        },
+	        events: {
+	            onReady: onReady,
+	            onStateChange: onStateChange,
+	            onError: onError,
+	        },
+	    });
+	}
+	
+	
+	
+
+	// Callback specified to process the onReady event has been received
+	// so can proceed with creating and managing You Tube player(s)
+	function onReady(event) {
+	    //player.stopVideo();	   
+	    playQueueList();
+	    // make the interface visible since we're now ready to go
+	    document.getElementById("ux").style.visibility = "visible";
+	    console.log("player ready");
+	}
+
+
+
+	// Log state changes
+	function onStateChange(event) {
+	    var state = "undefiend";
+	    clearInterval(checkInt);
+	    playState = "none";
+	    switch (event.data) {
+	        case YT.PlayerState.UNSTARTED:
+	            state = "unstarted";
+	            break;
+	        case YT.PlayerState.ENDED:
+	            state = "ended";
+	            startInterval();
+	            playState = "END";
+	            break;
+	        case YT.PlayerState.PLAYING:
+	            state = "playing";
+	            startInterval();
+	            playState = "RUN";
+	            break;
+	        case YT.PlayerState.PAUSED:
+	            state = "paused";
+	            break;
+	        case YT.PlayerState.BUFFERING:
+	            state = "buffering";
+	            break;
+	        case YT.PlayerState.CUED:
+	            state = "video cued";
+	            break;
+	        default:
+	            state = "unknown (" + event.data + ")";
+	    }
+
+	    console.log("onStateChange: " + state);
+	}
+
+
+
+	// Log any errors
+	function onError(event) {
+	    var error = "undefined";
+	    switch (event.data) {
+	        case 2:
+	            error = "Invalid parameter value";
+	            break;
+	        case 5:
+	            error = "HTML 5 related error";
+	            break;
+	        case 100:
+	            error = "Video requested is not found";
+	            break;
+	        case 101:
+	            error = "Embedded playback forbidden by ownder";
+	            break;
+	        case 150:
+	            error = "Error processing video request";
+	            break;
+	        default:
+	            error = "unknown (" + event.data + ")";
+	    }
+	    console.log("onError: " + error);
+	    alert("Error: " + error);
+	}
+
+
+
+
+	// QueueList Script Start
+	// ----------------------
+
+	var checkInt;
+
+	function startInterval() {
+	    //checks every 100ms to see if the video has reached
+	    checkInt = setInterval(function () {
+	        document.getElementById("videoTime").innerHTML = player.getCurrentTime();
+
+	        if (playState == "RUN" || playState == "END") {
+	        		            
+	            if (player.getCurrentTime() < QueuePlayist[curQueue].start) {
+	                curQueue = curQueue - 2;
+	                playQueueList();
+	            } else if (player.getCurrentTime() > QueuePlayist[curQueue].end) {
+	                playQueueList();
+	            }
+	        }
+	    }, 100);
+	}
+
+	function submitCueVideoById() {
+	    var videoId = document.getElementById("cueVideoById").value;
+	    var start = document.getElementById("cueVideoStart").value;
+	    var end = document.getElementById("cueVideoEnd").value;
+
+	    var QueRow = '<div>Queue Video : <a href="https://www.youtube.com/watch?v=crqUDl8BPWI">crqUDl8BPWI</a> [ 60 sec - 120 sec ]</div>';
+	    AddToQueue(videoId, start, end);
+	}
+
+	function AddToQueue(YTid, sSec, eSec) {
+	    var Que = {
+	        vid: YTid,
+	        start: sSec,
+	        end: eSec,
+	    };
+
+	    QueuePlayist.push(Que);
+
+	    var QueRow = "<div>Queue " + QueuePlayist.length + ' : <a href="https://www.youtube.com/watch?v=' + YTid + '">' + YTid + "</a> [ " + sSec + " sec - " + eSec + " sec ]</div>";
+	    document.getElementById("QueueList").innerHTML = document.getElementById("QueueList").innerHTML + QueRow;
+	}
+
+	function playQueueList() {
+	    if (curQueue >= 0) {
+	        if (player.getCurrentTime() < QueuePlayist[curQueue].start) {
+	            curQueue = curQueue - 2;
+	        } else if (QueuePlayist[curQueue].start < player.getCurrentTime() > QueuePlayist[curQueue].end) {
+	            return;
+	        }
+
+	        var NextQueue = curQueue + 1;
+	        if (QueuePlayist[NextQueue]) {
+	            player.loadVideoById({
+	                videoId: QueuePlayist[NextQueue].vid,
+	                startSeconds: QueuePlayist[NextQueue].start,
+	                endSeconds: QueuePlayist[NextQueue].end,
+	            });
+	            player.playVideo();
+	            curQueue = NextQueue;
+	            document.getElementById("QueueNum").innerHTML = curQueue;
+	        } else if (NextQueue == QueuePlayist.length) {
+	            alert("Queue List End");
+	            clearInterval(checkInt);
+	            document.getElementById("QueueNum").innerHTML = "-";
+	            curQueue = -1;
+	            QueueState = "QueueEnded";
+	        } else if (NextQueue < QueuePlayist.length) {
+	            alert("Next Queue Not Found");
+	        } else {
+	            alert("somthing went wrong NQ" + NextQueue + " queLAn :" + QueuePlayist.length);
+	        }
+	    }
+
+	    if (curQueue == -1) {
+	        if (QueuePlayist[0]) {
+	            player.loadVideoById({
+	                videoId: QueuePlayist[0].vid,
+	                startSeconds: QueuePlayist[0].start,
+	                endSeconds: QueuePlayist[0].end,
+	            });
+
+	            if (QueueState == "QueueEnded") {
+	                player.stopVideo();
+	            } else {
+	                player.playVideo();
+	            }
+
+	            curQueue = 0;
+	            document.getElementById("QueueNum").innerHTML = curQueue;
+	        } else {
+	            alert("No Queue Found!");
+	        }
+	    }
+	}
+
+    </script>
+      
+  </body>
+</html>
+
